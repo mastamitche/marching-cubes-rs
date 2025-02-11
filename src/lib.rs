@@ -1,9 +1,6 @@
 use byteorder::{LittleEndian, WriteBytesExt};
 use evalexpr::{eval_with_context, ContextWithMutableVariables, HashMapContext, Value};
-use fidget::{
-    eval::{EzShape, MathShape, Shape, TracingEvaluator},
-    vm::VmShape,
-};
+use fidget::{eval::TracingEvaluator, shape::EzShape, vm::VmShape};
 use nalgebra::{distance, point, vector, Point3, Vector3};
 use rayon::{prelude::*, vec};
 use std::{collections::HashMap, fs, io::Write, sync::Mutex};
@@ -172,8 +169,8 @@ pub fn marching_cubes_fidget(
 
     let edge_table = &EDGE_TABLE.map(|e| format!("{:b}", e));
 
-    let (sum, ctx) = fidget::rhai::eval(expr).expect("Could not evaluate");
-    let shape = VmShape::new(&ctx, sum).expect("Could not build shape.");
+    let tree = fidget::rhai::eval(expr).expect("Could not evaluate");
+    let shape = VmShape::from(tree);
     let tape = shape.ez_point_tape();
 
     let vertices = (0..x_count)
@@ -194,11 +191,9 @@ pub fn marching_cubes_fidget(
                                 .map(|p| {
                                     let (out, _trace) = point_eval
                                         .eval(
-                                            &tape,
-                                            p.x as f32, // X
+                                            &tape, p.x as f32, // X
                                             p.y as f32, // Y
                                             p.z as f32, // Z
-                                            &[],        // variables (unused)
                                         )
                                         .expect("Could not perform point evaluation");
                                     out as f64
@@ -263,7 +258,7 @@ pub fn marching_cubes_evaluated(
 
     let edge_table = &EDGE_TABLE.map(|e| format!("{:b}", e));
 
-    let mut evaluated : HashMap<[usize; 3], f64>= HashMap::new();
+    let mut evaluated: HashMap<[usize; 3], f64> = HashMap::new();
 
     let vertices = (0..x_count)
         .into_par_iter()
@@ -627,7 +622,7 @@ impl VoxelGrid {
         let scale = 1.;
         let min_point = point![size_x as f64 / 2., size_y as f64 / 2., size_z as f64 / 2.];
         let values = vec![vec![vec![0.; size_x]; size_y]; size_z];
-        let grid_points = vec![vec![vec![point![0.,0.,0.]; size_x]; size_y]; size_z];
+        let grid_points = vec![vec![vec![point![0., 0., 0.]; size_x]; size_y]; size_z];
         Self {
             size_x,
             size_y,
@@ -635,7 +630,7 @@ impl VoxelGrid {
             min_point,
             scale,
             values,
-            grid_points
+            grid_points,
         }
     }
     pub fn get(&self, x: usize, y: usize, z: usize) -> f64 {
